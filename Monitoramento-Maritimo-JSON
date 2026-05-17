@@ -1,0 +1,69 @@
+```json
+{
+  "sistema": {
+    "nome": "DSB Telemetria Pro",
+    "tipo": "Barco Solar Eletrico",
+    "versao": "1.0"
+  },
+
+  "tempo": {
+    "segundos": 125,
+    "timestamp_ms": 125430
+  },
+
+  "bateria": {
+    "voltagem_v": 24.63,
+    "corrente_a": 12.41,
+    "potencia_w": 305.6,
+    "soc_percent": 66.1,
+    "capacidade_ah": 40.0,
+    "autonomia_h": 2.13,
+    "estado": "NORMAL"
+  },
+
+  "temperatura": {
+    "motor_c": 38.4,
+    "alerta": false,
+    "critico": false
+  },
+
+  "estrategia": {
+    "distancia_restante_km": 12.5,
+    "tempo_prova_restante_h": 1.8,
+    "velocidade_atual_kmh": 10.8,
+    "velocidade_ideal_kmh": 11.2,
+    "modo_economia": false,
+    "protecao_termica": false
+  },
+
+  "sensores": {
+    "ina226": {
+      "status": "OK"
+    },
+    "ds18b20": {
+      "status": "OK"
+    },
+    "sd_card": {
+      "status": "OK"
+    }
+  },
+
+  "alertas": {
+    "bateria_baixa": false,
+    "superaquecimento": false,
+    "sobretensao": false,
+    "autonomia_critica": false
+  },
+
+  "gps": {
+    "latitude": -22.9145,
+    "longitude": -43.1823,
+    "velocidade_real_kmh": 10.8
+  },
+
+  "energia_solar": {
+    "potencia_gerada_w": 420.5,
+    "eficiencia_percent": 81.3
+  }
+}
+```
