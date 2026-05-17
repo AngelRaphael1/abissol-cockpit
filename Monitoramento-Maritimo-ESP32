@@ -1,0 +1,585 @@
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <INA226.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// =====================================================
+// TELEMETRIA INTELIGENTE - BARCO SOLAR DSB
+// =====================================================
+
+// ==========================
+// CONFIGURAÇÕES
+// ==========================
+
+#define SD_CS                5
+#define ONE_WIRE_BUS         4
+
+// Bateria
+#define VOLT_MIN             21.0
+#define VOLT_MAX             26.5
+#define CAPACIDADE_AH        40.0
+
+// Filtro
+#define AMOSTRAS             15
+
+// Segurança
+#define TEMP_ALERTA          50.0
+#define TEMP_CRITICA         60.0
+
+#define SOC_ALERTA           15.0
+#define SOC_CRITICO          5.0
+
+#define VOLT_SOBRETENSAO     28.0
+
+// Estratégia
+#define VELOCIDADE_MAX       25.0
+#define VELOCIDADE_MIN       5.0
+
+// =====================================================
+// INSTÂNCIAS
+// =====================================================
+
+INA226 ina;
+
+OneWire oneWire(ONE_WIRE_BUS);
+
+DallasTemperature sensors(&oneWire);
+
+File arquivo;
+
+// =====================================================
+// VARIÁVEIS GLOBAIS
+// =====================================================
+
+// Sensores
+float voltagem = 0;
+float corrente = 0;
+float potencia = 0;
+float temperatura = 0;
+
+// Energia
+float soc = 0;
+float tempoRestante = 0;
+
+// Estratégia
+float distanciaRestante = 12.5;
+float tempoProvaRestante = 1.8;
+
+float velocidadeAtual = 0;
+float velocidadeIdeal = 0;
+
+// Filtros
+float leiturasV[AMOSTRAS];
+float leiturasI[AMOSTRAS];
+
+int indiceLeitura = 0;
+
+// Tempo
+unsigned long ultimoTempo = 0;
+unsigned long tempoSegundos = 0;
+
+// Status
+bool sdDisponivel = false;
+bool inaDisponivel = false;
+
+// =====================================================
+// ESTADOS
+// =====================================================
+
+enum EstadoSistema {
+  NORMAL,
+  ALERTA,
+  CRITICO
+};
+
+EstadoSistema estadoAtual = NORMAL;
+
+// =====================================================
+// SETUP
+// =====================================================
+
+void setup() {
+
+  Serial.begin(115200);
+
+  Wire.begin();
+
+  Wire.setClock(100000);
+
+  Serial.println("\n=================================");
+  Serial.println(" TELEMETRIA DSB PRO");
+  Serial.println(" BARCO SOLAR ELETRICO");
+  Serial.println("=================================");
+
+  // ==========================================
+  // INICIALIZA FILTROS
+  // ==========================================
+
+  for (int i = 0; i < AMOSTRAS; i++) {
+
+    leiturasV[i] = VOLT_MAX;
+
+    leiturasI[i] = 0;
+  }
+
+  // ==========================================
+  // INA226
+  // ==========================================
+
+  if (!ina.begin()) {
+
+    Serial.println("ERRO: INA226 nao detectado!");
+
+  } else {
+
+    inaDisponivel = true;
+
+    ina.configure(
+      INA226_AVERAGES_16,
+      INA226_BUS_CONV_TIME_1100US,
+      INA226_SHUNT_CONV_TIME_1100US,
+      INA226_MODE_SHUNT_BUS_CONT
+    );
+
+    ina.calibrate(0.002, 20);
+
+    Serial.println("INA226 OK");
+  }
+
+  // ==========================================
+  // DS18B20
+  // ==========================================
+
+  sensors.begin();
+
+  Serial.println("DS18B20 OK");
+
+  // ==========================================
+  // SD CARD
+  // ==========================================
+
+  if (SD.begin(SD_CS)) {
+
+    sdDisponivel = true;
+
+    Serial.println("SD CARD OK");
+
+    // Cria CSV
+
+    if (!SD.exists("/log_dsb.csv")) {
+
+      arquivo = SD.open("/log_dsb.csv", FILE_WRITE);
+
+      if (arquivo) {
+
+        arquivo.println(
+          "tempo_s,voltagem,corrente,potencia,soc,temperatura,autonomia_h,velocidade_ideal,estado"
+        );
+
+        arquivo.close();
+      }
+    }
+
+  } else {
+
+    Serial.println("AVISO: SD CARD nao detectado!");
+  }
+
+  Serial.println("Sistema iniciado!");
+}
+
+// =====================================================
+// LOOP PRINCIPAL
+// =====================================================
+
+void loop() {
+
+  if (millis() - ultimoTempo >= 1000) {
+
+    ultimoTempo = millis();
+
+    tempoSegundos = millis() / 1000;
+
+    // ==========================================
+    // LEITURA DOS SENSORES
+    // ==========================================
+
+    lerSensores();
+
+    // ==========================================
+    // PROCESSAMENTO
+    // ==========================================
+
+    processarDados();
+
+    // ==========================================
+    // ESTRATÉGIA
+    // ==========================================
+
+    calcularEstrategia();
+
+    // ==========================================
+    // ALERTAS
+    // ==========================================
+
+    verificarAlertas();
+
+    // ==========================================
+    // TELEMETRIA
+    // ==========================================
+
+    enviarTelemetria();
+
+    // ==========================================
+    // SD CARD
+    // ==========================================
+
+    if (sdDisponivel) {
+
+      salvarSD();
+    }
+  }
+}
+
+// =====================================================
+// LEITURA DOS SENSORES
+// =====================================================
+
+void lerSensores() {
+
+  // INA226
+
+  if (inaDisponivel) {
+
+    float leituraV = ina.readBusVoltage();
+
+    float leituraI = ina.readShuntCurrent();
+
+    voltagem = filtrar(leituraV, leiturasV);
+
+    corrente = filtrar(leituraI, leiturasI);
+
+    potencia = ina.readBusPower();
+  }
+
+  // Temperatura
+
+  sensors.requestTemperatures();
+
+  temperatura = sensors.getTempCByIndex(0);
+
+  // Verifica erro do sensor
+
+  if (temperatura == -127.0) {
+
+    Serial.println(
+      "ERRO: DS18B20 desconectado!"
+    );
+  }
+
+  // Atualiza índice do filtro
+
+  indiceLeitura++;
+
+  if (indiceLeitura >= AMOSTRAS) {
+
+    indiceLeitura = 0;
+  }
+}
+
+// =====================================================
+// FILTRO MÉDIA MÓVEL
+// =====================================================
+
+float filtrar(float novaLeitura, float *array) {
+
+  array[indiceLeitura] = novaLeitura;
+
+  float soma = 0;
+
+  for (int i = 0; i < AMOSTRAS; i++) {
+
+    soma += array[i];
+  }
+
+  return soma / AMOSTRAS;
+}
+
+// =====================================================
+// PROCESSAMENTO
+// =====================================================
+
+void processarDados() {
+
+  // ==========================================
+  // SOC (% BATERIA)
+  // ==========================================
+
+  soc = (voltagem - VOLT_MIN) *
+        (100.0 / (VOLT_MAX - VOLT_MIN));
+
+  if (soc > 100.0) soc = 100.0;
+
+  if (soc < 0.0) soc = 0.0;
+
+  // ==========================================
+  // AUTONOMIA
+  // ==========================================
+
+  if (corrente > 0.1) {
+
+    tempoRestante =
+      (CAPACIDADE_AH * (soc / 100.0))
+      / corrente;
+
+  } else {
+
+    tempoRestante = 99.9;
+  }
+}
+
+// =====================================================
+// ESTRATÉGIA DE PROVA
+// =====================================================
+
+void calcularEstrategia() {
+
+  // ==========================================
+  // VELOCIDADE IDEAL
+  // ==========================================
+
+  if (tempoProvaRestante > 0) {
+
+    velocidadeIdeal =
+      distanciaRestante / tempoProvaRestante;
+
+  } else {
+
+    velocidadeIdeal = 0;
+  }
+
+  // ==========================================
+  // LIMITES
+  // ==========================================
+
+  if (velocidadeIdeal > VELOCIDADE_MAX) {
+
+    velocidadeIdeal = VELOCIDADE_MAX;
+  }
+
+  if (velocidadeIdeal < VELOCIDADE_MIN &&
+      velocidadeIdeal > 0) {
+
+    velocidadeIdeal = VELOCIDADE_MIN;
+  }
+
+  // ==========================================
+  // MODO ECONOMIA
+  // ==========================================
+
+  if (soc < 20.0) {
+
+    velocidadeIdeal *= 0.85;
+
+    Serial.println(
+      "MODO ECONOMIA ATIVADO"
+    );
+  }
+
+  // ==========================================
+  // PROTEÇÃO TÉRMICA
+  // ==========================================
+
+  if (temperatura > 55.0) {
+
+    velocidadeIdeal *= 0.70;
+
+    Serial.println(
+      "PROTECAO TERMICA ATIVADA"
+    );
+  }
+
+  // ==========================================
+  // STATUS
+  // ==========================================
+
+  if (velocidadeAtual < velocidadeIdeal) {
+
+    Serial.println(
+      "ABAIXO DA VELOCIDADE IDEAL"
+    );
+
+  } else {
+
+    Serial.println(
+      "RITMO DE PROVA OK"
+    );
+  }
+}
+
+// =====================================================
+// TELEMETRIA JSON
+// =====================================================
+
+void enviarTelemetria() {
+
+  Serial.print("{");
+
+  Serial.print("\"tempo\":");
+  Serial.print(tempoSegundos);
+
+  Serial.print(",\"v\":");
+  Serial.print(voltagem, 2);
+
+  Serial.print(",\"i\":");
+  Serial.print(corrente, 2);
+
+  Serial.print(",\"p\":");
+  Serial.print(potencia, 1);
+
+  Serial.print(",\"soc\":");
+  Serial.print(soc, 1);
+
+  Serial.print(",\"t\":");
+  Serial.print(temperatura, 1);
+
+  Serial.print(",\"autonomia\":");
+  Serial.print(tempoRestante, 2);
+
+  Serial.print(",\"v_ideal\":");
+  Serial.print(velocidadeIdeal, 1);
+
+  Serial.print(",\"estado\":\"");
+
+  switch (estadoAtual) {
+
+    case NORMAL:
+      Serial.print("NORMAL");
+      break;
+
+    case ALERTA:
+      Serial.print("ALERTA");
+      break;
+
+    case CRITICO:
+      Serial.print("CRITICO");
+      break;
+  }
+
+  Serial.println("\"}");
+}
+
+// =====================================================
+// SALVAR CSV
+// =====================================================
+
+void salvarSD() {
+
+  arquivo = SD.open("/log_dsb.csv", FILE_APPEND);
+
+  if (arquivo) {
+
+    arquivo.printf(
+      "%lu,%.2f,%.2f,%.1f,%.1f,%.1f,%.2f,%.1f,%d\n",
+      tempoSegundos,
+      voltagem,
+      corrente,
+      potencia,
+      soc,
+      temperatura,
+      tempoRestante,
+      velocidadeIdeal,
+      estadoAtual
+    );
+
+    arquivo.close();
+
+  } else {
+
+    Serial.println(
+      "ERRO: Falha ao salvar CSV!"
+    );
+  }
+}
+
+// =====================================================
+// ALERTAS E SEGURANÇA
+// =====================================================
+
+void verificarAlertas() {
+
+  estadoAtual = NORMAL;
+
+  // ==========================================
+  // TEMPERATURA
+  // ==========================================
+
+  if (temperatura >= TEMP_CRITICA) {
+
+    estadoAtual = CRITICO;
+
+    Serial.println(
+      "!!! CRITICO: SUPERAQUECIMENTO !!!"
+    );
+  }
+
+  else if (temperatura >= TEMP_ALERTA) {
+
+    estadoAtual = ALERTA;
+
+    Serial.println(
+      "!! ALERTA: MOTOR QUENTE !!"
+    );
+  }
+
+  // ==========================================
+  // SOC
+  // ==========================================
+
+  if (soc <= SOC_CRITICO) {
+
+    estadoAtual = CRITICO;
+
+    Serial.println(
+      "!!! CRITICO: BATERIA ESGOTANDO !!!"
+    );
+  }
+
+  else if (soc <= SOC_ALERTA) {
+
+    estadoAtual = ALERTA;
+
+    Serial.println(
+      "!! ALERTA: BATERIA BAIXA !!"
+    );
+  }
+
+  // ==========================================
+  // AUTONOMIA
+  // ==========================================
+
+  if (tempoRestante <= 0.5 &&
+      corrente > 0.5) {
+
+    estadoAtual = ALERTA;
+
+    Serial.println(
+      "!! ALERTA: MENOS DE 30 MIN !!"
+    );
+  }
+
+  // ==========================================
+  // SOBRETENSÃO
+  // ==========================================
+
+  if (voltagem >= VOLT_SOBRETENSAO) {
+
+    estadoAtual = CRITICO;
+
+    Serial.println(
+      "!!! CRITICO: SOBRETENSAO !!!"
+    );
+  }
+}
