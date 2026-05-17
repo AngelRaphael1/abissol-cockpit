@@ -1,69 +1,105 @@
-```json
 {
-  "sistema": {
-    "nome": "DSB Telemetria Pro",
-    "tipo": "Barco Solar Eletrico",
-    "versao": "1.0"
+  "METADADOS": {
+    "projeto": "DSB Telemetria Pro",
+    "equipe": "Barco Solar DSB",
+    "versao_firmware": 2.9,
+    "timestamp_gravacao_utc": "2026-05-17T19:30:00Z"
   },
 
-  "tempo": {
-    "segundos": 125,
-    "timestamp_ms": 125430
-  },
-
-  "bateria": {
-    "voltagem_v": 24.63,
-    "corrente_a": 12.41,
-    "potencia_w": 305.6,
-    "soc_percent": 66.1,
-    "capacidade_ah": 40.0,
-    "autonomia_h": 2.13,
-    "estado": "NORMAL"
-  },
-
-  "temperatura": {
-    "motor_c": 38.4,
-    "alerta": false,
-    "critico": false
-  },
-
-  "estrategia": {
-    "distancia_restante_km": 12.5,
-    "tempo_prova_restante_h": 1.8,
-    "velocidade_atual_kmh": 10.8,
-    "velocidade_ideal_kmh": 11.2,
-    "modo_economia": false,
-    "protecao_termica": false
-  },
-
-  "sensores": {
-    "ina226": {
-      "status": "OK"
+  "TELEMETRIA_DINAMICA": {
+    "codigo_estado_sistema": 0,
+    "__comentario_codigos": "0: NORMAL, 1: ALERTA, 2: CRITICO",
+    
+    "cronometria": {
+      "contador_pacotes": 1,
+      "uptime_s": 125,
+      "uptime_min": 2,
+      "delta_tempo_s": 1.000
     },
-    "ds18b20": {
-      "status": "OK"
+    
+    "banco_baterias": {
+      "tensao_v": 24.63,
+      "corrente_a": 12.41,
+      "potencia_w": 305.60,
+      "estado_de_carga_soc_pct": 66.1,
+      "autonomia_estimada_h": 2.13
     },
-    "sd_card": {
-      "status": "OK"
+    
+    "termica": {
+      "temperatura_celulas_c": 38.4,
+      "protecao_termica_ativa": false
+    },
+    
+    "estrategia_corrida": {
+      "distancia_restante_km": 12.5,
+      "tempo_restante_h": 1.8,
+      "velocidade_atual_kmh": 0.0,
+      "velocidade_alvo_kmh": 11.2,
+      "modo_economia_ativo": false,
+      "ritmo_prova_no_alvo": true
     }
   },
 
-  "alertas": {
-    "bateria_baixa": false,
-    "superaquecimento": false,
-    "sobretensao": false,
-    "autonomia_critica": false
+  "DIAGNOSTICO_E_SAUDE_HARDWARE": {
+    "diagnostico_i2c_ok": true,
+    "sensores_ativos": {
+      "ina226_conectado": true,
+      "ds18b20_conectado": true,
+      "sd_card_pronto": true,
+      "gravacao_log_ativa": true
+    },
+    "telecom": {
+      "forca_sinal_rssi_dbm": -45,
+      "erros_transmissao_contagem": 0
+    }
   },
 
-  "gps": {
-    "latitude": -22.9145,
-    "longitude": -43.1823,
-    "velocidade_real_kmh": 10.8
+  "ALARMES_E_GATILHOS_ATIVOS": {
+    "bateria": {
+      "subtensao_critica": false,
+      "subtensao_alerta": false,
+      "sobretensao_limite": false
+    },
+    "termico": {
+      "temperatura_alerta": false,
+      "superaquecimento_critico": false
+    },
+    "hardware": {
+      "falha_comunicacao_ina": false,
+      "falha_gravacao_sd": false
+    }
   },
 
-  "energia_solar": {
-    "potencia_gerada_w": 420.5,
-    "eficiencia_percent": 81.3
+  "DIRETRIZES_ESTATICAS_FIRMWARE": {
+    "bateria_limites": {
+      "capacidade_nominal_ah": 40.0,
+      "tensao_corte_min_v": 21.0,
+      "tensao_teto_max_v": 26.5,
+      "sobretensao_limite_v": 28.0,
+      "corrente_ociosa_corte_a": 0.05
+    },
+    "termico_limites": {
+      "gatilho_alerta_c": 50.0,
+      "gatilho_critico_c": 60.0
+    },
+    "navegacao_limites": {
+      "velocidade_teto_max_kmh": 25.0,
+      "velocidade_piso_min_kmh": 5.0
+    }
+  },
+
+  "EXPANSOES_MOCK_HARDWARE": {
+    "modulo_gps": {
+      "instalado": false,
+      "coordenadas": { "latitude": 0.000000, "longitude": 0.000000 },
+      "velocidade_real_nos": 0.0,
+      "satelites_rastreados": 0
+    },
+    "geracao_solar": {
+      "instalado": false,
+      "potencia_gerada_w": 0.0,
+      "corrente_painel_a": 0.0,
+      "eficiencia_calculada_pct": 0.0
+    }
   }
 }
-```
