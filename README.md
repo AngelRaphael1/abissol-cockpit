@@ -18,7 +18,6 @@ Sistema de monitoramento em tempo real para embarcação solar, desenvolvido par
 - Transmissão de dados para cockpit
 
 ## Exemplo de saída (JSON)
-```json
 {
   "METADADOS": {
     "projeto": "DSB Telemetria Pro",
