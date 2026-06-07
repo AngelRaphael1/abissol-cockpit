@@ -24,5 +24,4 @@ Sistema de monitoramento em tempo real para embarcação solar, desenvolvido par
     "versao_firmware": 2.9,
     "timestamp_gravacao_utc": "2026-05-17T19:30:00Z"
 
-## Autor
-Angel Raphael Galeano Torres
+
