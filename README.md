@@ -1,16 +1,24 @@
-# abissol-cockpit
+# AbisSol – Sistema de Telemetria para Barco Solar
 
-Sistema de monitoramento e cockpit de dados para o protótipo de barco solar do projeto AbisSol.
+Sistema de monitoramento em tempo real para embarcação solar, desenvolvido para competições DSB.
 
-# 🚤 Projeto AbisSol - Cockpit & Telemetria
+## Tecnologias
+- C++ (ESP32/Arduino)
+- Python (análise e visualização)
+- Sensores: INA226 (tensão/corrente), DS18B20 (temperatura)
+- Protocolos: I2C, OneWire
+- Filtros digitais de média móvel
+- Máquina de estados para alertas (NORMAL/ALERTA/CRÍTICO)
 
-Este repositório contém os estudos e scripts para o desenvolvimento do sistema de dados do barco solar **AbisSol**.
+## Funcionalidades
+- Leitura de tensão, corrente, potência, temperatura
+- Cálculo de SoC (State of Charge) e autonomia estimada
+- Detecção de sobrecarga, superaquecimento, baixa bateria
+- Logging em JSON para análise posterior
+- Transmissão de dados para cockpit
 
-## 🛠️ Tecnologias Estudadas/Utilizadas
+## Exemplo de saída (JSON)
+[cole um trecho do JSON que você mostrou]
 
-- Python (Manipulação de dados e automação)
-- Lógica de interface para Cockpit
-- Integração com sistemas de hardware/sensores
-
-## 🎯 Objetivo
-Desenvolver uma interface em tempo real para monitoramento de bateria, eficiência dos painéis solares e velocidade, garantindo a melhor estratégia de navegação para as competições.
+## Autor
+Angel Raphael Galeano Torres
